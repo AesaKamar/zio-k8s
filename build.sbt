@@ -36,9 +36,6 @@ lazy val root = Project("zio-k8s", file("."))
   )
   .aggregate(
     client,
-    clientMonocle,
-    clientQuicklens,
-    clientZioOptics,
     crd,
     operator,
     examples
@@ -86,82 +83,6 @@ lazy val client = Project("zio-k8s-client", file("zio-k8s-client"))
     buildInfoObject  := "BuildInfo"
   )
   .enablePlugins(K8sResourceCodegenPlugin, BuildInfoPlugin)
-
-lazy val clientQuicklens = Project("zio-k8s-client-quicklens", file("zio-k8s-client-quicklens"))
-  .settings(commonSettings)
-  .settings(
-    libraryDependencies ++= Seq(
-      "com.softwaremill.quicklens" %% "quicklens"    % "1.8.8",
-      "dev.zio"                    %% "zio-test"     % zioVersion % Test,
-      "dev.zio"                    %% "zio-test-sbt" % zioVersion % Test
-    ),
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
-  )
-  .dependsOn(client)
-
-lazy val clientMonocle = Project("zio-k8s-client-monocle", file("zio-k8s-client-monocle"))
-  .settings(commonSettings)
-  .settings(
-    crossScalaVersions := List(scala212Version, scala213Version),
-    Compile / scalacOptions ++= {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, n)) if n >= 13 => "-Ymacro-annotations" :: Nil
-        case _                       => Nil
-      }
-    },
-    libraryDependencies ++= {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, n)) if n <= 12 =>
-          List(compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full))
-        case _                       => Nil
-      }
-    },
-    libraryDependencies ++= Seq(
-      "com.github.julien-truffaut" %% "monocle-core"  % "2.1.0",
-      "com.github.julien-truffaut" %% "monocle-macro" % "2.1.0",
-      "dev.zio"                    %% "zio-test"      % zioVersion % Test,
-      "dev.zio"                    %% "zio-test-sbt"  % zioVersion % Test
-    ),
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    Compile / packageSrc / mappings ++= {
-      val base = (Compile / sourceManaged).value
-      val files = (Compile / managedSources).value
-      files
-        .map { f =>
-          (f, f.relativeTo(base).map(_.getPath))
-        }
-        .collect { case (f, Some(g)) =>
-          (f -> g)
-        }
-    }
-  )
-  .dependsOn(client)
-  .enablePlugins(K8sMonocleCodegenPlugin)
-
-lazy val clientZioOptics = Project("zio-k8s-client-optics", file("zio-k8s-client-optics"))
-  .settings(commonSettings)
-  .settings(
-    crossScalaVersions := List(scala212Version, scala213Version, scala3Version),
-    libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-optics"   % "0.1.0",
-      "dev.zio" %% "zio-test"     % zioVersion % Test,
-      "dev.zio" %% "zio-test-sbt" % zioVersion % Test
-    ),
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    Compile / packageSrc / mappings ++= {
-      val base = (Compile / sourceManaged).value
-      val files = (Compile / managedSources).value
-      files
-        .map { f =>
-          (f, f.relativeTo(base).map(_.getPath))
-        }
-        .collect { case (f, Some(g)) =>
-          (f -> g)
-        }
-    }
-  )
-  .dependsOn(client)
-  .enablePlugins(K8sOpticsCodegenPlugin)
 
 lazy val crd = Project("zio-k8s-crd", file("zio-k8s-crd"))
   .settings(commonSettings)
@@ -224,7 +145,6 @@ lazy val examples = project
   )
   .aggregate(
     leaderExample,
-    opticsExample,
     logsExample
   )
 
@@ -243,13 +163,6 @@ lazy val leaderExample = Project("leader-example", file("examples/leader-example
   )
   .dependsOn(operator)
   .enablePlugins(JavaAppPackaging, DockerPlugin)
-
-val opticsExample = Project("optics-example", file("examples/optics-example"))
-  .settings(commonSettings)
-  .settings(
-    publish / skip := true
-  )
-  .dependsOn(client, clientQuicklens, clientMonocle)
 
 val logsExample = Project("logs-example", file("examples/logs-example"))
   .settings(commonSettings)
@@ -277,8 +190,6 @@ lazy val docs = project
     ),
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(
       client,
-      clientMonocle,
-      clientQuicklens,
       operator
     ),
     ScalaUnidoc / unidoc / target              := (LocalRootProject / baseDirectory).value / "website" / "static" / "api",
@@ -286,5 +197,5 @@ lazy val docs = project
     docusaurusCreateSite                       := docusaurusCreateSite.dependsOn(Compile / unidoc).value,
     docusaurusPublishGhpages                   := docusaurusPublishGhpages.dependsOn(Compile / unidoc).value
   )
-  .dependsOn(client, clientQuicklens, clientMonocle, clientZioOptics, operator)
+  .dependsOn(client, operator)
   .enablePlugins(MdocPlugin, DocusaurusPlugin, ScalaUnidocPlugin)

@@ -29,7 +29,9 @@ The monocle optics code generator is invoked separately as a code generator for 
 In the following sections we discuss the code generator steps.
 
 ## Identification
-In the _identification_ phase, implemented by `IdentifiedSchema.identifyDefinition` and `IdentifiedPath.identifyPath`, the code enumerates _all_ model definitions and endpoints from the OpenAPI schema, extracts some information about them and stores them in subtypes of the `Identified` trait.
+In the _identification_ phase, implemented by `IdentifiedSchema.identifyDefinition` and `IdentifiedPath.identifyPath`, 
+the code enumerates _all_ model definitions and endpoints from the OpenAPI schema, 
+extracts some information about them and stores them in subtypes of the `Identified` trait.
 
 For model definitions this can be:
 - `Regular` is a model schema with no special info about it. These are simple data types, not Kubernetes resources

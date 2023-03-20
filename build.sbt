@@ -199,3 +199,9 @@ lazy val docs = project
   )
   .dependsOn(client, operator)
   .enablePlugins(MdocPlugin, DocusaurusPlugin, ScalaUnidocPlugin)
+
+//Note, this code is intented not to be edited (I think?)
+//Its inclusion in the `build.sbt` project structure is intended for ease of code-browsing
+lazy val codegen = project
+  .in(file("zio-k8s-codegen"))
+  .settings(unmanagedSources := List(new File("zio-k8s-codegen/")))

@@ -1,4 +1,3 @@
-val scala212Version = "2.12.17"
 val scala213Version = "2.13.10"
 val scala3Version = "3.1.3"
 
@@ -25,8 +24,8 @@ inThisBuild(
 
 val commonSettings = Seq(
   organization       := "com.coralogix",
-  scalaVersion       := scala212Version,
-  crossScalaVersions := List(scala212Version, scala213Version, scala3Version),
+  scalaVersion       := scala213Version,
+  crossScalaVersions := List(scala213Version, scala3Version),
   autoAPIMappings    := true
 )
 
@@ -54,6 +53,7 @@ lazy val client = Project("zio-k8s-client", file("zio-k8s-client"))
       "com.softwaremill.sttp.client3" %% "core"                          % sttpVersion,
       "com.softwaremill.sttp.client3" %% "zio"                           % sttpVersion,
       "com.softwaremill.sttp.client3" %% "circe"                         % sttpVersion,
+      "org.http4s"                    %% "http4s-ember-client"           % "1.0.0-M39",
       "io.circe"                      %% "circe-core"                    % "0.14.2",
       "io.circe"                      %% "circe-generic"                 % "0.14.2",
       "io.circe"                      %% "circe-parser"                  % "0.14.2",
@@ -64,7 +64,12 @@ lazy val client = Project("zio-k8s-client", file("zio-k8s-client"))
       "dev.zio"                       %% "zio-config-typesafe"           % zioConfigVersion % Test,
       "com.softwaremill.sttp.client3" %% "slf4j-backend"                 % sttpVersion      % Optional,
       "com.softwaremill.sttp.client3" %% "async-http-client-backend-zio" % sttpVersion      % Optional,
-      "com.softwaremill.sttp.client3" %% "httpclient-backend-zio"        % sttpVersion      % Optional
+      "com.softwaremill.sttp.client3" %% "httpclient-backend-zio"        % sttpVersion      % Optional,
+      // Trying to see if I can break this out to use a different effect system
+      "org.typelevel"                 %% "cats-core"                     % "2.9.0",
+      "org.typelevel"                 %% "cats-effect"                   % "3.4.8",
+      "co.fs2"                        %% "fs2-core"                      % "3.6.1",
+      "co.fs2"                        %% "fs2-io"                        % "3.6.1"
     ),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     Compile / packageSrc / mappings ++= {

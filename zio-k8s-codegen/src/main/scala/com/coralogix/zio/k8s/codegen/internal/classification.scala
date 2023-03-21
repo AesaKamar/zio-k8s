@@ -4,10 +4,11 @@ import com.coralogix.zio.k8s.codegen.internal.Conversions.splitName
 import com.coralogix.zio.k8s.codegen.internal.EndpointType.SubresourceEndpoint
 import com.coralogix.zio.k8s.codegen.internal.Whitelist.IssueReference
 import org.atteo.evo.inflector.English
-import zio.Task
 
-import scala.meta._
+import scala.meta.*
 import _root_.io.swagger.v3.oas.models.parameters.QueryParameter
+import cats.data.EitherT
+import cats.effect.IO
 
 sealed trait ClassifiedResource {
   val unsupportedEndpoints: Set[IdentifiedAction]
@@ -136,11 +137,15 @@ case class Subresource(
 }
 
 object ClassifiedResource {
+  import cats.syntax.all._
+  import scala.util.chaining._
+  import cats.effect.instances._
+
   def classifyActions(
     logger: sbt.Logger,
     definitionMap: Map[String, IdentifiedSchema],
     identified: Set[IdentifiedAction]
-  ): Task[Set[SupportedResource]] = {
+  ): IO[Either[Throwable, Set[SupportedResource]]] = {
     val byPath: Map[String, IdentifiedAction] =
       identified.map(action => action.name -> action).toMap
     val rootGVKs: Map[IdentifiedAction, GroupVersionKind] =
@@ -212,25 +217,24 @@ object ClassifiedResource {
 
     for {
       _      <- printIssues(logger, allIssues)
-      result <- if (hadUnsupported) {
-                  Task.fail(
-                    new sbt.MessageOnlyException(
-                      "Unknown, non-whitelisted resource actions found. See the code generation log."
-                    )
-                  )
-                } else {
-                  Task.succeed(allResources.collect { case supported: SupportedResource =>
+                  .pipe(EitherT.liftF[IO, Throwable, Unit])
+      result <- EitherT.cond[IO](
+                  hadUnsupported,
+                  allResources.collect { case supported: SupportedResource =>
                     supported
-                  })
-                }
+                  },
+                  new sbt.MessageOnlyException(
+                    "Unknown, non-whitelisted resource actions found. See the code generation log."
+                  ): Throwable
+                )
     } yield result
-  }
+  }.value
 
-  private def printIssues(logger: sbt.Logger, issues: Set[IssueReference]) =
+  private def printIssues(logger: sbt.Logger, issues: Set[IssueReference]): IO[Unit] =
     for {
-      _ <- Task.effect(logger.info(s"Issues for currently unsupported resources/actions:"))
-      _ <- Task.foreach_(issues) { issue =>
-             Task.effect(logger.info(s" - ${issue.url}"))
+      _ <- IO.delay(logger.info(s"Issues for currently unsupported resources/actions:"))
+      _ <- issues.toVector.traverse { issue =>
+             IO.delay(logger.info(s" - ${issue.url}"))
            }
     } yield ()
 

@@ -1,22 +1,19 @@
 package com.coralogix.zio.k8s.crd
 
-import com.coralogix.zio.k8s.crd.guardrail._
-import com.coralogix.zio.k8s.codegen.internal._
-import com.coralogix.zio.k8s.codegen.internal.CodegenIO._
-import com.coralogix.zio.k8s.model.pkg.apis.apiextensions.v1._
-import com.coralogix.zio.k8s.client.model._
+import cats.effect.IO
+import com.coralogix.zio.k8s.crd.guardrail.*
+import com.coralogix.zio.k8s.codegen.internal.*
+import com.coralogix.zio.k8s.codegen.internal.CodegenIO.*
+import com.coralogix.zio.k8s.model.pkg.apis.apiextensions.v1.*
+import com.coralogix.zio.k8s.client.model.*
 import com.coralogix.zio.k8s.model.pkg.apis.apiextensions.v1
-import com.twilio.guardrail.generators.syntax._
-import io.circe.syntax._
+import com.twilio.guardrail.generators.syntax.*
+import fs2.io.file.Path
+import io.circe.syntax.*
 import io.circe.yaml.parser.parse
-import sbt._
+import sbt.*
 import sbt.util.Logger
 import org.scalafmt.interfaces.Scalafmt
-import zio.blocking.Blocking
-import zio.nio.file.Path
-import zio.nio.file.Files
-import zio.stream.ZStream
-import zio.{ Chunk, Task, ZIO }
 
 import java.io.File
 import java.nio.file.StandardCopyOption
@@ -26,7 +23,7 @@ class K8sCustomResourceCodegen(val scalaVersion: String) extends Common with Cli
     crd: CustomResourceDefinition,
     version: String,
     yamlPath: Path
-  ): Task[String] = {
+  ): IO[String] = {
     val singular = crd.spec.names.singular.getOrElse(crd.spec.names.plural)
     val entityName = crd.spec.names.kind
     val moduleName = crd.spec.names.plural
@@ -83,7 +80,7 @@ class K8sCustomResourceCodegen(val scalaVersion: String) extends Common with Cli
     version: CustomResourceDefinitionVersion,
     yamlPath: Path,
     outputRoot: Path
-  ): ZIO[Blocking, Throwable, List[Path]] = {
+  ): IO[Either[Throwable, List[Path]]] = {
     val singular = crd.spec.names.singular.getOrElse(crd.spec.names.plural)
     val entityName = crd.spec.names.kind
     val pluralName = crd.spec.names.plural
@@ -120,7 +117,7 @@ class K8sCustomResourceCodegen(val scalaVersion: String) extends Common with Cli
           modulePathComponents =
             (basePackage ++ Vector(pluralName, version.name, "package.scala")).map(s => Path(s))
           modulePath           = modulePathComponents.foldLeft(outputRoot)(_ / _)
-          _                   <- Files.createDirectories(modulePath.parent.get)
+          _                   <- fs2.io.file.Files[IO].createDirectories(modulePath.parent.get)
           _                   <- writeTextFile(modulePath, crdModule)
         } yield modulePath :: generatedModels
       case None                 =>

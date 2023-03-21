@@ -2,19 +2,17 @@ package com.coralogix.zio.k8s.codegen.internal
 
 import com.coralogix.zio.k8s.codegen.internal.CodegenIO.writeTextFile
 import com.coralogix.zio.k8s.codegen.internal.Conversions.{ groupNameToPackageName, splitName }
-import com.coralogix.zio.k8s.codegen.internal.UnifiedClientModuleGenerator._
+import com.coralogix.zio.k8s.codegen.internal.UnifiedClientModuleGenerator.*
+import fs2.io.file.Path
 import org.scalafmt.interfaces.Scalafmt
 
-import scala.meta._
-import zio.ZIO
-import zio.blocking.Blocking
-import zio.nio.file.Path
-import zio.nio.file.Files
-
+import scala.meta.*
 import scala.collection.immutable
+import cats.effect.IO
 
 trait UnifiedClientModuleGenerator {
   this: Common with ClientModuleGenerator =>
+  import cats.syntax.all._
 
   def generateUnifiedClientModule(
     scalafmt: Scalafmt,
@@ -22,14 +20,14 @@ trait UnifiedClientModuleGenerator {
     basePackageName: String,
     definitionMap: Map[String, IdentifiedSchema],
     resources: Set[SupportedResource]
-  ): ZIO[Blocking, Throwable, Set[Path]] = {
+  ): IO[Set[Path]] = {
     val gvkTree = toTree(resources)
     val source = generateUnifiedClientModuleSource(gvkTree, basePackageName, definitionMap)
 
     val pkg = basePackageName.split('.')
     val targetDir = pkg.foldLeft(targetRoot)(_ / _) / "kubernetes"
     for {
-      _         <- Files.createDirectories(targetDir)
+      _         <- fs2.io.file.Files[IO].createDirectories(targetDir)
       targetPath = targetDir / "package.scala"
       _         <- writeTextFile(targetPath, source)
       _         <- format(scalafmt, targetPath)

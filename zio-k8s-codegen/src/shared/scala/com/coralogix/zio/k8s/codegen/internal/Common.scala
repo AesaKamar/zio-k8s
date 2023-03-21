@@ -1,15 +1,13 @@
 package com.coralogix.zio.k8s.codegen.internal
 
-import com.coralogix.zio.k8s.codegen.internal.CodegenIO.{ readTextFile, writeTextFile }
+import cats.effect.IO
+import com.coralogix.zio.k8s.codegen.internal.CodegenIO.{readTextFile, writeTextFile}
 import com.coralogix.zio.k8s.codegen.internal.Conversions.splitName
+import fs2.io.file.Path
 import io.swagger.v3.oas.models.media.ObjectSchema
 import org.scalafmt.interfaces.Scalafmt
-import zio.ZIO
-import zio.blocking.Blocking
-import zio.nio.file.Path
 
-import java.nio.file.{ Path => JPath, Paths => JPaths }
-
+import java.nio.file.{Path as JPath, Paths as JPaths}
 import scala.meta.Tree
 import scala.meta.internal.prettyprinters.TreeSyntax
 
@@ -41,13 +39,13 @@ trait Common {
     prettyprinter(tree).toString
   }
 
-  protected def format(scalafmt: Scalafmt, path: Path): ZIO[Blocking, Throwable, Path] =
+  protected def format(scalafmt: Scalafmt, path: Path): IO[Path] =
     if (scalaVersion.startsWith("3."))
-      ZIO.succeed(path) // NOTE: no formatting for scala 3 yet
+      IO.delay(path) // NOTE: no formatting for scala 3 yet
     else
       for {
         code     <- readTextFile(path)
-        formatted = scalafmt.format(JPaths.get(".scalafmt.conf"), path.toFile.toPath, code)
+        formatted = scalafmt.format(JPaths.get(".scalafmt.conf"), path.toNioPath, code)
         _        <- writeTextFile(path, formatted)
       } yield path
 }

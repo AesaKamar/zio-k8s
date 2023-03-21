@@ -2,34 +2,34 @@ package com.coralogix.zio.k8s.codegen.internal
 
 import com.coralogix.zio.k8s.codegen.internal.CodegenIO.writeTextFile
 import com.coralogix.zio.k8s.codegen.internal.Conversions.splitName
+import fs2.io.file.Path
 import org.scalafmt.interfaces.Scalafmt
-import zio.ZIO
-import zio.blocking.Blocking
-import zio.nio.file.Path
-import zio.nio.file.Files
 
-import scala.meta._
+import cats.effect.IO
+
+import scala.meta.*
 
 trait SubresourceClientGenerator {
   this: ModelGenerator with Common =>
+  import cats.syntax.all._
 
   def generateSubresourceAliases(
     scalafmt: Scalafmt,
     targetRoot: Path,
     subresources: Set[SubresourceId]
-  ): ZIO[Blocking, Throwable, Set[Path]] = {
+  ): IO[Set[Path]] = {
     val targetDir = targetRoot / "com" / "coralogix" / "zio" / "k8s" / "client" / "subresources"
-    ZIO.foreach(subresources) { subid =>
+    subresources.toVector.traverse { subid =>
       val (modelPkg, modelName) = splitName(subid.modelName)
       val src = subresourceSource(subid, modelPkg, modelName)
       val targetPkgDir = modelPkg.foldLeft(targetDir)(_ / _)
       val targetPath = targetPkgDir / (subid.name + ".scala")
       for {
-        _ <- Files.createDirectories(targetPkgDir)
+        _ <- fs2.io.file.Files[IO].createDirectories(targetPkgDir)
         _ <- writeTextFile(targetPath, src)
         _ <- format(scalafmt, targetPath)
       } yield targetPath
-    }
+    }.map(_.toSet)
   }
 
   def subresourceSource(

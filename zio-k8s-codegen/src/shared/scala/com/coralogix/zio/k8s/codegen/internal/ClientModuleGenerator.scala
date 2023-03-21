@@ -4,14 +4,13 @@ import io.swagger.v3.oas.models.media.ObjectSchema
 import org.scalafmt.interfaces.Scalafmt
 import sbt.util.Logger
 import zio.blocking.Blocking
-import zio.{ Task, ZIO }
-import com.coralogix.zio.k8s.codegen.internal.Conversions.{ groupNameToPackageName, splitName }
-import com.coralogix.zio.k8s.codegen.internal.CodegenIO._
+import com.coralogix.zio.k8s.codegen.internal.Conversions.{groupNameToPackageName, splitName}
+import com.coralogix.zio.k8s.codegen.internal.CodegenIO.*
 import org.atteo.evo.inflector.English
-import zio.nio.file.Path
-import zio.nio.file.Files
+import cats.effect.IO
+import fs2.io.file.Path
 
-import scala.meta._
+import scala.meta.*
 
 trait ClientModuleGenerator {
   this: Common =>
@@ -28,8 +27,8 @@ trait ClientModuleGenerator {
     subresources: Set[SubresourceId],
     crdYaml: Option[Path],
     supportsDeleteMany: Boolean
-  ): Task[String] =
-    ZIO.effect {
+  ): IO[String] =
+      IO.delay {
       val basePackage =
         if (gvk.group.nonEmpty)
           s"$basePackageName.${groupNameToPackageName(gvk.group).mkString(".")}"

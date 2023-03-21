@@ -18,5 +18,9 @@ libraryDependencies ++= Seq(
   "io.circe"            %% "circe-yaml"       % "0.14.1",
   "org.scalameta"       %% "scalameta"        % "4.4.21",
   "org.scalameta"       %% "scalafmt-dynamic" % "2.7.5",
-  "org.atteo"            % "evo-inflector"    % "1.3"
+  "org.atteo"            % "evo-inflector"    % "1.3",
+  "org.typelevel"       %% "cats-core"        % "2.9.0",
+  "org.typelevel"       %% "cats-effect"      % "3.4.8",
+  "co.fs2"              %% "fs2-core"         % "3.6.1",
+  "co.fs2"              %% "fs2-io"           % "3.6.1"
 )

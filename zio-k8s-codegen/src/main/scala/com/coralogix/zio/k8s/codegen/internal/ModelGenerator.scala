@@ -3,18 +3,17 @@ package com.coralogix.zio.k8s.codegen.internal
 import io.swagger.v3.oas.models.media.{ ArraySchema, ObjectSchema, Schema }
 import org.scalafmt.interfaces.Scalafmt
 import sbt.util.Logger
-import zio.ZIO
-import zio.blocking.Blocking
 import com.coralogix.zio.k8s.codegen.internal.CodegenIO.writeTextFile
 import com.coralogix.zio.k8s.codegen.internal.Conversions.splitName
-import zio.nio.file.Path
-import zio.nio.file.Files
 
-import scala.collection.JavaConverters._
-import scala.meta._
+import scala.collection.JavaConverters.*
+import scala.meta.*
+import cats.effect.IO
+import fs2.io.file.Path
 
 trait ModelGenerator {
   this: Common =>
+  import cats.syntax.all._
 
   val modelRoot = Vector("com", "coralogix", "zio", "k8s", "model")
   def logger: sbt.Logger
@@ -24,25 +23,25 @@ trait ModelGenerator {
     targetRoot: Path,
     definitionMap: Map[String, IdentifiedSchema],
     resources: Set[SupportedResource]
-  ): ZIO[Blocking, Throwable, Set[Path]] = {
+  ): IO[Set[Path]] = {
     val filteredDefinitions = definitionMap.values.filter(d => !isListModel(d)).toSet
     for {
-      _     <- ZIO.effect(logger.info(s"Generating code for ${filteredDefinitions.size} models..."))
-      paths <- ZIO.foreach(filteredDefinitions) { d =>
+      _     <- IO.delay(logger.info(s"Generating code for ${filteredDefinitions.size} models..."))
+      paths <- filteredDefinitions.toVector.traverse { d =>
                  val (groupName, entityName) = splitName(d.name)
                  val pkg = (modelRoot ++ groupName)
 
                  for {
-                   _         <- ZIO.effect(logger.info(s"Generating '$entityName' to ${pkg.mkString(".")}"))
+                   _         <- IO.delay(logger.info(s"Generating '$entityName' to ${pkg.mkString(".")}"))
                    src        = generateModel(modelRoot, pkg, entityName, d, resources, definitionMap)
                    targetDir  = pkg.foldLeft(targetRoot)(_ / _)
-                   _         <- Files.createDirectories(targetDir)
+                   _         <- fs2.io.file.Files[IO].createDirectories(targetDir)
                    targetPath = targetDir / s"$entityName.scala"
                    _         <- writeTextFile(targetPath, src)
                    _         <- format(scalafmt, targetPath)
                  } yield targetPath
                }
-    } yield paths
+    } yield paths.toSet
   }
 
   protected def isListModel(model: IdentifiedSchema): Boolean =

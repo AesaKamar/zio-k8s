@@ -106,7 +106,7 @@ class K8sResourceCodegen(val logger: sbt.Logger, val scalaVersion: String)
     resources: Set[SupportedResource]
   ): IO[Set[Path]] =
     resources.toList
-      .traverse(generatePackage(scalafmt, targetRoot, definitionMap, _))
+      .parTraverse(generatePackage(scalafmt, targetRoot, definitionMap, _))
       .map(_.toSet)
 
   private def generatePackage(

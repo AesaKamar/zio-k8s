@@ -25,6 +25,7 @@ object K8sResourceCodegenPlugin extends AutoPlugin {
           FileInfo.hash
         ) { input: Set[File] =>
           input.foldLeft(Set.empty[File]) { (result, k8sSwagger) =>
+
             val fs =
               codegen
                 .generateAll(

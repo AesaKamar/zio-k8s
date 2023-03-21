@@ -145,7 +145,7 @@ object ClassifiedResource {
     logger: sbt.Logger,
     definitionMap: Map[String, IdentifiedSchema],
     identified: Set[IdentifiedAction]
-  ): IO[Either[Throwable, Set[SupportedResource]]] = {
+  ): IO[Set[SupportedResource]] = {
     val byPath: Map[String, IdentifiedAction] =
       identified.map(action => action.name -> action).toMap
     val rootGVKs: Map[IdentifiedAction, GroupVersionKind] =
@@ -217,18 +217,20 @@ object ClassifiedResource {
 
     for {
       _      <- printIssues(logger, allIssues)
-                  .pipe(EitherT.liftF[IO, Throwable, Unit])
-      result <- EitherT.cond[IO](
-                  hadUnsupported,
-                  allResources.collect { case supported: SupportedResource =>
-                    supported
-                  },
-                  new sbt.MessageOnlyException(
-                    "Unknown, non-whitelisted resource actions found. See the code generation log."
-                  ): Throwable
-                )
+      result <-
+        if (hadUnsupported)
+          IO(
+            throw new sbt.MessageOnlyException(
+              "Unknown, non-whitelisted resource actions found. See the code generation log."
+            )
+          )
+        else
+          IO.delay(allResources.collect { case supported: SupportedResource =>
+            supported
+          })
+
     } yield result
-  }.value
+  }
 
   private def printIssues(logger: sbt.Logger, issues: Set[IssueReference]): IO[Unit] =
     for {

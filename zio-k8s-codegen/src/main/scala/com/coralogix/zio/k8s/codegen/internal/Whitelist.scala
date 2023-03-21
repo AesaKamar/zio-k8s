@@ -45,7 +45,7 @@ object Whitelist {
       case _: ApiVersionInfo                                         => Some(IssueReference(59))
       case _: ApiResourceListing                                     => Some(IssueReference(59))
       case _: ApiGroupListing                                        => Some(IssueReference(59))
-      case _: GetKubernetesVesion                                    => Some(IssueReference(59))
+      case _: GetKubernetesVersion                                    => Some(IssueReference(59))
       case _                                                         => None
     }
 

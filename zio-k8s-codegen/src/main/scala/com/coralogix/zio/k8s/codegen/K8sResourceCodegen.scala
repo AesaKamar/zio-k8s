@@ -35,18 +35,19 @@ class K8sResourceCodegen(val logger: sbt.Logger, val scalaVersion: String)
                         .toSet
       definitionMap = definitions.map(d => d.name -> d).toMap
 
-      paths        = spec.getPaths.asScala.flatMap((IdentifiedPath.identifyPath _).tupled).toList
-      identified   = paths.collect { case i: IdentifiedAction => i }
-      unidentified = paths.filter {
-                       case _: IdentifiedAction => false
-                       case _                   => true
-                     }
-      _           <- checkUnidentifiedPaths(unidentified)
+      paths             = spec.getPaths.asScala.flatMap((IdentifiedPath.identifyPath _).tupled).toList
+      identified        = paths.collect { case i: IdentifiedAction => i }
+      unidentified      = paths.filter {
+                            case _: IdentifiedAction => false
+                            case _                   => true
+                          }
+      _                <- checkUnidentifiedPaths(unidentified)
+                            .pipe(EitherT.liftF[IO, Throwable, Unit])
 
       // Classifying
       resources        <- ClassifiedResource
                             .classifyActions(logger, definitionMap, identified.toSet)
-                            .pipe(EitherT.apply[IO, Throwable, Set[SupportedResource]])
+                            .pipe(EitherT.liftF[IO, Throwable, Set[SupportedResource]])
       subresources      = resources.flatMap(_.subresources)
       subresourceIds    = subresources.map(_.id)
       subresourcePaths <- generateSubresourceAliases(scalafmt, targetDir, subresourceIds)
@@ -76,12 +77,15 @@ class K8sResourceCodegen(val logger: sbt.Logger, val scalaVersion: String)
         .Files[IO]
         .readAll(from)
         .through(fs2.text.utf8.decode)
-        .evalMap { rawJson =>
-          IO.delay {
+        .compile
+        .string
+        .flatMap { rawJson =>
+          IO {
+            val parser: OpenAPIParser = new OpenAPIParser
             val opts: ParseOptions = new ParseOptions()
             opts.setResolve(true)
             val parserResult: SwaggerParseResult =
-              (new OpenAPIParser).readContents(rawJson, List.empty.asJava, opts)
+              parser.readContents(rawJson, List.empty.asJava, opts)
 
             Option(parserResult.getMessages).foreach { messages =>
               messages.asScala.foreach(println)
@@ -91,8 +95,6 @@ class K8sResourceCodegen(val logger: sbt.Logger, val scalaVersion: String)
               .toRight(new RuntimeException(s"Failed to parse k8s swagger specs"))
           }
         }
-        .compile
-        .lastOrError
         .recover { case t => t.asLeft }
 
   private val clientRoot = Vector("com", "coralogix", "zio", "k8s", "client")
@@ -151,12 +153,12 @@ class K8sResourceCodegen(val logger: sbt.Logger, val scalaVersion: String)
 
   private def checkUnidentifiedPaths(
     paths: Seq[IdentifiedPath]
-  ): EitherT[IO, Throwable, Unit] =
+  ): IO[Unit] =
     for {
       whitelistInfo <- paths.toVector
                          .traverse { path =>
                            Whitelist.isWhitelistedPath(path) match {
-                             case s @ Some(_) => IO.pure(s)
+                             case s @ Some(_) => IO.delay(s)
                              case None        =>
                                IO
                                  .delay(
@@ -165,20 +167,16 @@ class K8sResourceCodegen(val logger: sbt.Logger, val scalaVersion: String)
                                  .as(None)
                            }
                          }
-                         .pipe(
-                           EitherT.liftF[IO, Throwable, Vector[Option[Whitelist.IssueReference]]]
-                         )
       issues         = whitelistInfo.collect { case Some(issueRef) => issueRef }.toSet
-      _             <- EitherT.cond[IO](
-                         whitelistInfo.contains(None),
-                         None,
-                         new sbt.MessageOnlyException(
-                           "Unknown, non-whitelisted path found. See the code generation log."
+      _             <- if (whitelistInfo.contains(None)) {
+                         IO(
+                           throw new sbt.MessageOnlyException(
+                             "Unknown, non-whitelisted path found. See the code generation log."
+                           )
                          )
-                       )
-      _             <- IO.delay(logger.info(s"Issues for currently unsupported paths:")).pipe(EitherT.liftF[IO, Throwable, Unit])
+                       } else IO.unit
+      _             <- IO.delay(logger.info(s"Issues for currently unsupported paths:"))
       _             <- issues.toVector
                          .traverse(issue => IO.delay(logger.info(s" - ${issue.url}")))
-                         .pipe(EitherT.liftF[IO, Throwable, Vector[Unit]])
     } yield ()
 }

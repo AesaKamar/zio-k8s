@@ -137,7 +137,7 @@ case class ApiResourceListing(name: String, op: Operation) extends IdentifiedPat
 
 case class ApiGroupListing(name: String, op: Operation) extends IdentifiedPath
 
-case class GetKubernetesVesion(name: String, op: Operation) extends IdentifiedPath
+case class GetKubernetesVersion(name: String, op: Operation) extends IdentifiedPath
 
 case class IdentifiedAction(
   name: String,
@@ -197,7 +197,7 @@ object IdentifiedPath {
           else if (ref == "#/components/schemas/io.k8s.apimachinery.pkg.apis.meta.v1.APIVersions")
             Some(ApiVersionInfo(path, op))
           else if (ref == "#/components/schemas/io.k8s.apimachinery.pkg.version.Info")
-            Some(GetKubernetesVesion(path, op))
+            Some(GetKubernetesVersion(path, op))
           else None
       } yield result
 
